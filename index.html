@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DR-SNS 커뮤니티</title>
-    <!-- Google Fonts -->
+    <title>DR-SNS 커뮤니티 | Phase 2-3</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -13,13 +12,13 @@
 <header>
     <div class="logo" onclick="showView('main-view')">DR-SNS</div>
     <nav id="nav-menu">
-        <!-- 로그인 상태에 따라 버튼이 동적으로 생성됩니다 -->
+        <!-- JS에서 동적 생성 (로그인/회원가입/내글) -->
     </nav>
 </header>
 
 <div class="container">
     
-    <!-- 로그인 페이지 -->
+    <!-- 인증 뷰 (1단계 일관성 유지) -->
     <section id="login-view" class="view">
         <div class="card auth-card">
             <h2>로그인</h2>
@@ -30,7 +29,6 @@
         </div>
     </section>
 
-    <!-- 회원가입 페이지 -->
     <section id="signup-view" class="view">
         <div class="card auth-card">
             <h2>회원가입</h2>
@@ -41,18 +39,20 @@
         </div>
     </section>
 
-    <!-- 메인 페이지 -->
+    <!-- 메인 게시판 뷰 (기획서 6.1 반영) -->
     <section id="main-view" class="view active">
-        <!-- 글 작성 영역 (로그인 시에만 보임) -->
         <div id="post-write-area" class="card hidden">
-            <textarea id="post-input" rows="3" placeholder="지금 무슨 생각을 하고 계신가요?"></textarea>
+            <h3>새 게시글 작성</h3>
+            <input type="text" id="post-title" placeholder="제목을 입력하세요 (기획서 5.1)">
+            <textarea id="post-input" rows="3" placeholder="내용을 입력하세요"></textarea>
             <button class="btn-main" onclick="handleCreatePost()">게시하기</button>
         </div>
-        <!-- 게시글 목록 -->
-        <div id="post-list"></div>
+        <div id="post-list">
+            <!-- 게시글 + 좋아요 + 댓글 목록 -->
+        </div>
     </section>
 
-    <!-- 사용자 페이지 (내 글 관리) -->
+    <!-- 내 활동 뷰 -->
     <section id="profile-view" class="view">
         <h2 id="profile-title">내 게시글 관리</h2>
         <div id="my-post-list"></div>
