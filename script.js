@@ -1,5 +1,7 @@
-/* DR-SNS 프론트엔드 스크립트 */
-const API_URL = "/api";
+/* 1~7단계 통합: UI 및 하트 기능 수정 버전 */
+// const API_URL = "/api";
+const API_URL = "http://localhost:3000/api"; //내 컴터 테스트용
+
 let currentUser = JSON.parse(sessionStorage.getItem('dr_session')) || null;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -7,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAllPosts();
 });
 
-// 서버 통신 함수
 async function request(path, method = "GET", body = null) {
     const options = {
         method,
@@ -18,26 +19,91 @@ async function request(path, method = "GET", body = null) {
     return response.json();
 }
 
-async function handleSignup() {
-    const username = document.getElementById('signup-username').value;
-    const password = document.getElementById('signup-password').value;
-    try {
-        const result = await request('/signup', 'POST', { username, password });
-        alert(result.message);
-        if(result.message === "회원가입 성공!") toggleAuthTab('login');
-    } catch (e) { alert("서버 통신 에러"); }
+function showView(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById(viewId).classList.add('active');
+    if (viewId === 'main-view') renderAllPosts();
+    if (viewId === 'profile-view') renderMyPosts();
+}
+
+function updateUIState() {
+    const nav = document.getElementById('nav-menu');
+    const writeArea = document.getElementById('post-write-area');
+    if (currentUser) {
+        nav.innerHTML = `
+            <span class="user-info"><strong>${currentUser.username}</strong>님</span>
+            <button onclick="showView('profile-view')">내 활동</button>
+            <button onclick="handleLogout()" style="border-color:var(--danger); color:var(--danger);">로그아웃</button>
+        `;
+        writeArea.classList.remove('hidden');
+    } else {
+        nav.innerHTML = `<button onclick="showView('auth-view')">로그인 / 회원가입</button>`;
+        writeArea.classList.add('hidden');
+    }
+}
+
+// 렌더링 엔진 (post.id -> post._id 로 수정)
+function createPostHTML(post, postComments) {
+    const isLiked = currentUser && post.likes.includes(currentUser.id);
+    const isAuthor = currentUser && post.authorId === currentUser.id;
+    const postId = post._id; // 몽고디비 고유 ID 사용
+
+    return `
+        <div class="card">
+            <div class="post-header">
+                <span class="post-author">@${post.author}</span>
+                <span class="post-date">${post.date} ${isAuthor ? `<span class="delete-btn" onclick="deletePost('${postId}')">삭제</span>` : ''}</span>
+            </div>
+            <div class="post-title">${post.title}</div>
+            <div class="post-content">${post.content}</div>
+            <div class="post-footer">
+                <div class="action-item" onclick="toggleLike('${postId}')" style="color:${isLiked ? 'var(--accent)' : 'inherit'}">
+                    ${isLiked ? '❤️' : '🤍'} <span>${post.likes.length}</span>
+                </div>
+                <div class="action-item">💬 ${postComments.length}</div>
+            </div>
+            <div class="comment-section">
+                <div class="comment-list">
+                    ${postComments.map(c => `<div class="comment-item"><span class="comment-author">${c.author}:</span> ${c.content}</div>`).join('')}
+                </div>
+                ${currentUser ? `
+                    <div style="display:flex; gap:5px; margin-top:10px;">
+                        <input type="text" id="comment-in-${postId}" placeholder="댓글 입력..." style="margin-bottom:0; padding:8px; font-size:0.8rem;">
+                        <button class="btn-main" style="width:60px; padding:5px; font-size:0.8rem;" onclick="addComment('${postId}')">등록</button>
+                    </div>
+                ` : ''}
+            </div>
+        </div>`;
+}
+
+async function handleCreatePost() {
+    const title = document.getElementById('post-title').value;
+    const content = document.getElementById('post-content').value;
+    if (!title || !content) return alert("내용을 채워주세요.");
+    await request('/posts', 'POST', { title, content, author: currentUser.username, authorId: currentUser.id });
+    document.getElementById('post-title').value = '';
+    document.getElementById('post-content').value = '';
+    renderAllPosts();
 }
 
 async function handleLogin() {
-    const username = document.getElementById('login-username').value;
-    const password = document.getElementById('login-password').value;
-    const user = await request('/login', 'POST', { username, password });
-    if (user.id) {
-        currentUser = user;
+    const u = document.getElementById('login-username').value;
+    const p = document.getElementById('login-password').value;
+    const res = await request('/login', 'POST', { username: u, password: p });
+    if (res.id) {
+        currentUser = res;
         sessionStorage.setItem('dr_session', JSON.stringify(currentUser));
         updateUIState();
         showView('main-view');
-    } else { alert(user.message); }
+    } else { alert("로그인 실패"); }
+}
+
+async function handleSignup() {
+    const u = document.getElementById('signup-username').value;
+    const p = document.getElementById('signup-password').value;
+    const res = await request('/signup', 'POST', { username: u, password: p });
+    alert(res.message);
+    if(res.message === "회원가입 성공!") toggleAuthTab('login');
 }
 
 function handleLogout() {
@@ -50,21 +116,24 @@ function handleLogout() {
 async function renderAllPosts() {
     const posts = await request('/posts');
     const container = document.getElementById('post-list');
-    container.innerHTML = posts.length ? '' : '<div class="card">새 글을 작성해보세요!</div>';
+    container.innerHTML = posts.length ? '' : '<p style="text-align:center; color:#888;">게시글이 없습니다.</p>';
     for (const post of posts) {
-        const comments = await request(`/comments/${post.id}`);
+        const comments = await request(`/comments/${post._id}`);
         container.innerHTML += createPostHTML(post, comments);
     }
 }
 
-async function handleCreatePost() {
-    const title = document.getElementById('post-title').value;
-    const content = document.getElementById('post-content').value;
-    if (!title || !content) return alert("내용을 입력하세요.");
-    await request('/posts', 'POST', { title, content, author: currentUser.username, authorId: currentUser.id });
-    document.getElementById('post-title').value = '';
-    document.getElementById('post-content').value = '';
-    renderAllPosts();
+async function renderMyPosts() {
+    if(!currentUser) return;
+    document.getElementById('user-display-name').innerText = `${currentUser.username}님`;
+    const posts = await request('/posts');
+    const myPosts = posts.filter(p => p.authorId === currentUser.id);
+    const container = document.getElementById('my-post-list');
+    container.innerHTML = '';
+    for (const post of myPosts) {
+        const comments = await request(`/comments/${post._id}`);
+        container.innerHTML += createPostHTML(post, comments);
+    }
 }
 
 async function toggleLike(postId) {
@@ -87,67 +156,14 @@ async function deletePost(postId) {
     refreshCurrentView();
 }
 
-function createPostHTML(post, postComments) {
-    const isLiked = currentUser && post.likes.includes(currentUser.id);
-    const isAuthor = currentUser && post.authorId === currentUser.id;
-    return `
-        <div class="card">
-            <div class="post-header">
-                <span class="post-author">@${post.author}</span>
-                <span class="post-date">${post.date} ${isAuthor ? `<span class="delete-btn" onclick="deletePost('${post.id}')">삭제</span>` : ''}</span>
-            </div>
-            <div class="post-title">${post.title}</div>
-            <div class="post-content">${post.content}</div>
-            <div class="post-footer">
-                <div class="action-item" onclick="toggleLike('${post.id}')" style="color:${isLiked ? '#bb86fc' : 'inherit'}">❤️ ${post.likes.length}</div>
-                <div class="action-item">💬 ${postComments.length}</div>
-            </div>
-            <div class="comment-section">
-                ${postComments.map(c => `<div class="comment-item"><strong>${c.author}:</strong> ${c.content}</div>`).join('')}
-                <div class="comment-form">
-                    <input type="text" id="comment-in-${post.id}" placeholder="댓글 입력...">
-                    <button class="btn-main" style="width:60px;" onclick="addComment('${post.id}')">등록</button>
-                </div>
-            </div>
-        </div>`;
-}
-
-function updateUIState() {
-    const nav = document.getElementById('nav-menu');
-    const writeArea = document.getElementById('post-write-area');
-    if (currentUser) {
-        nav.innerHTML = `<span>${currentUser.username}님</span> <button onclick="showView('profile-view')">내글</button> <button onclick="handleLogout()">로그아웃</button>`;
-        writeArea.classList.remove('hidden');
-    } else {
-        nav.innerHTML = `<button onclick="showView('auth-view')">로그인</button>`;
-        writeArea.classList.add('hidden');
-    }
-}
-
-function showView(viewId) {
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById(viewId).classList.add('active');
-    if (viewId === 'main-view') renderAllPosts();
-    if (viewId === 'profile-view') renderMyPosts();
-}
-
 function toggleAuthTab(type) {
     document.getElementById('login-form').classList.toggle('hidden', type !== 'login');
     document.getElementById('signup-form').classList.toggle('hidden', type === 'login');
+    document.getElementById('tab-login').classList.toggle('active', type === 'login');
+    document.getElementById('tab-signup').classList.toggle('active', type !== 'login');
 }
 
 function refreshCurrentView() {
     if (document.getElementById('profile-view').classList.contains('active')) renderMyPosts();
     else renderAllPosts();
-}
-
-async function renderMyPosts() {
-    const posts = await request('/posts');
-    const myPosts = posts.filter(p => p.authorId === currentUser.id);
-    const container = document.getElementById('my-post-list');
-    container.innerHTML = '';
-    for (const post of myPosts) {
-        const comments = await request(`/comments/${post.id}`);
-        container.innerHTML += createPostHTML(post, comments);
-    }
 }
