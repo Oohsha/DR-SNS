@@ -1,5 +1,5 @@
 /* DR-SNS 프론트엔드 스크립트 */
-const API_URL = "http://localhost:3000/api";
+const API_URL = "/api";
 let currentUser = JSON.parse(sessionStorage.getItem('dr_session')) || null;
 
 document.addEventListener('DOMContentLoaded', () => {
