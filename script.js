@@ -1,6 +1,6 @@
 /* 1~7단계 통합: UI 및 하트 기능 수정 버전 */
-// const API_URL = "/api";
-const API_URL = "http://localhost:3000/api"; //내 컴터 테스트용
+const API_URL = "/api";
+// const API_URL = "http://localhost:3000/api";
 
 let currentUser = JSON.parse(sessionStorage.getItem('dr_session')) || null;
 
